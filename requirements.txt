@@ -1,0 +1,6 @@
+flask==3.0.0
+requests==2.31.0
+groq==0.4.2
+python-dotenv==1.0.0
+reportlab==4.0.7
+urllib3==2.1.0
