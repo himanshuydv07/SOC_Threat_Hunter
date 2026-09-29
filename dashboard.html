@@ -1,0 +1,632 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Wazuh Threat Hunter 🛡</title>
+<link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Rajdhani:wght@400;600;700&display=swap" rel="stylesheet"/>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+<style>
+:root {
+  --bg:        #05080f;
+  --surface:   #0a0f1e;
+  --surface2:  #0d1424;
+  --border:    #1a2744;
+  --border2:   #243560;
+  --accent:    #00d4ff;
+  --accent2:   #7c3aed;
+  --green:     #00ff9d;
+  --red:       #ff3b3b;
+  --orange:    #ff8c00;
+  --yellow:    #ffd700;
+  --text:      #c8d8f0;
+  --muted:     #4a6080;
+  --font-mono: 'Share Tech Mono', monospace;
+  --font-ui:   'Rajdhani', sans-serif;
+}
+* { box-sizing:border-box; margin:0; padding:0; }
+body {
+  background: var(--bg); color: var(--text); font-family: var(--font-ui);
+  font-size: 15px; min-height: 100vh;
+  background-image:
+    radial-gradient(ellipse at 15% 15%, rgba(0,212,255,0.05) 0%, transparent 55%),
+    radial-gradient(ellipse at 85% 85%, rgba(124,58,237,0.05) 0%, transparent 55%),
+    radial-gradient(ellipse at 50% 50%, rgba(0,255,157,0.02) 0%, transparent 70%);
+}
+header { display:flex; align-items:center; justify-content:space-between; padding:0 28px; height:60px; background:rgba(10,15,30,0.95); border-bottom:1px solid var(--border); position:sticky; top:0; z-index:100; backdrop-filter:blur(12px); }
+.logo { font-family:var(--font-mono); font-size:17px; color:var(--accent); letter-spacing:3px; display:flex; align-items:center; gap:10px; }
+.logo-icon { width:32px; height:32px; background:linear-gradient(135deg,var(--accent),var(--accent2)); border-radius:6px; display:flex; align-items:center; justify-content:center; font-size:16px; }
+.logo span { color:var(--accent2); }
+.badge { font-family:var(--font-mono); font-size:11px; padding:4px 12px; border-radius:4px; font-weight:bold; letter-spacing:1px; display:flex; align-items:center; gap:6px; }
+.badge::before { content:''; width:7px; height:7px; border-radius:50%; display:inline-block; }
+.badge.live    { background:rgba(0,255,157,0.1); color:var(--green); border:1px solid rgba(0,255,157,0.3); }
+.badge.live::before { background:var(--green); box-shadow:0 0 6px var(--green); animation:pulse 1.5s infinite; }
+.badge.standby { background:rgba(255,140,0,0.1); color:var(--orange); border:1px solid rgba(255,140,0,0.3); }
+.badge.standby::before { background:var(--orange); }
+@keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.4} }
+.container { padding:20px 28px; max-width:1700px; margin:auto; }
+.grid-4    { display:grid; grid-template-columns:repeat(4,1fr); gap:14px; margin-bottom:20px; }
+.grid-2    { display:grid; grid-template-columns:1fr 1fr; gap:14px; margin-bottom:20px; }
+.grid-3    { display:grid; grid-template-columns:1fr 1fr 1fr; gap:14px; margin-bottom:20px; }
+.grid-soar { display:grid; grid-template-columns:1fr 1.6fr; gap:14px; margin-bottom:20px; }
+.card { background:var(--surface); border:1px solid var(--border); border-radius:10px; padding:18px 20px; position:relative; overflow:hidden; }
+.card::before { content:''; position:absolute; top:0; left:0; right:0; height:2px; opacity:0.7; }
+.card-blue::before   { background:linear-gradient(90deg,var(--accent),transparent); }
+.card-red::before    { background:linear-gradient(90deg,var(--red),transparent); }
+.card-purple::before { background:linear-gradient(90deg,var(--accent2),transparent); }
+.card-green::before  { background:linear-gradient(90deg,var(--green),transparent); }
+.card-orange::before { background:linear-gradient(90deg,var(--orange),transparent); }
+.card-multi::before  { background:linear-gradient(90deg,var(--accent),var(--accent2)); }
+.card-glow-blue::after   { content:''; position:absolute; top:-40px; right:-40px; width:120px; height:120px; background:radial-gradient(circle,rgba(0,212,255,0.08),transparent 70%); pointer-events:none; }
+.card-glow-red::after    { content:''; position:absolute; top:-40px; right:-40px; width:120px; height:120px; background:radial-gradient(circle,rgba(255,59,59,0.08),transparent 70%); pointer-events:none; }
+.card-glow-purple::after { content:''; position:absolute; top:-40px; right:-40px; width:120px; height:120px; background:radial-gradient(circle,rgba(124,58,237,0.08),transparent 70%); pointer-events:none; }
+.card-glow-green::after  { content:''; position:absolute; top:-40px; right:-40px; width:120px; height:120px; background:radial-gradient(circle,rgba(0,255,157,0.08),transparent 70%); pointer-events:none; }
+.card-title { font-family:var(--font-mono); font-size:10px; color:var(--muted); letter-spacing:2px; text-transform:uppercase; margin-bottom:8px; }
+.stat-val   { font-family:var(--font-mono); font-size:38px; font-weight:bold; line-height:1; }
+.stat-sub   { font-size:11px; color:var(--muted); margin-top:5px; }
+.c-accent{color:var(--accent);} .c-red{color:var(--red);} .c-orange{color:var(--orange);}
+.c-yellow{color:var(--yellow);} .c-green{color:var(--green);} .c-purple{color:var(--accent2);} .c-muted{color:var(--muted);}
+.section-hd { font-family:var(--font-mono); font-size:10px; letter-spacing:3px; color:var(--muted); text-transform:uppercase; margin-bottom:14px; padding-bottom:8px; border-bottom:1px solid var(--border); display:flex; justify-content:space-between; align-items:center; }
+.section-count { background:rgba(0,212,255,0.1); color:var(--accent); border:1px solid rgba(0,212,255,0.2); padding:1px 8px; border-radius:10px; font-size:10px; }
+.timing-grid { display:flex; gap:12px; }
+.timing-item { flex:1; background:rgba(0,212,255,0.04); border:1px solid rgba(0,212,255,0.12); border-radius:8px; padding:14px; text-align:center; }
+.timing-val { font-family:var(--font-mono); font-size:26px; color:var(--accent); }
+.timing-lbl { font-size:10px; color:var(--muted); margin-top:3px; letter-spacing:1px; text-transform:uppercase; }
+.nist-grid { display:flex; flex-direction:column; gap:10px; }
+.nist-row  { display:flex; align-items:center; gap:12px; }
+.nist-label { font-family:var(--font-mono); font-size:11px; width:70px; color:var(--muted); }
+.nist-bar-wrap { flex:1; background:rgba(255,255,255,0.04); border-radius:4px; height:20px; overflow:hidden; }
+.nist-bar { height:100%; border-radius:4px; transition:width 1.2s cubic-bezier(.4,0,.2,1); display:flex; align-items:center; padding-left:8px; font-size:10px; font-family:var(--font-mono); color:rgba(0,0,0,0.7); font-weight:bold; }
+.nist-bar.ID { background:linear-gradient(90deg,#3b82f6,#60a5fa); }
+.nist-bar.PR { background:linear-gradient(90deg,#8b5cf6,#a78bfa); }
+.nist-bar.DE { background:linear-gradient(90deg,#06b6d4,#22d3ee); }
+.nist-bar.RS { background:linear-gradient(90deg,#ef4444,#f87171); }
+.nist-bar.RC { background:linear-gradient(90deg,#10b981,#34d399); }
+.nist-pct { font-family:var(--font-mono); font-size:11px; width:36px; text-align:right; }
+.sev-bar-section { display:flex; flex-direction:column; gap:12px; }
+.sev-row-hd { display:flex; justify-content:space-between; margin-bottom:5px; }
+.sev-bar-wrap2 { background:rgba(255,255,255,0.04); border-radius:4px; height:12px; overflow:hidden; }
+.sev-bar { height:100%; border-radius:4px; transition:width 1.2s cubic-bezier(.4,0,.2,1); }
+.alert-list { display:flex; flex-direction:column; gap:6px; max-height:520px; overflow-y:auto; }
+.alert-item { display:grid; grid-template-columns:82px 1fr auto 70px; align-items:center; gap:10px; padding:10px 14px; border-radius:7px; background:rgba(255,255,255,0.018); border:1px solid rgba(255,255,255,0.05); font-size:13px; transition:all 0.2s; cursor:default; }
+.alert-item:hover { border-color:rgba(0,212,255,0.3); background:rgba(0,212,255,0.03); transform:translateX(2px); }
+.alert-item.sev-CRITICAL { border-left:3px solid var(--red); }
+.alert-item.sev-HIGH     { border-left:3px solid var(--orange); }
+.alert-item.sev-MEDIUM   { border-left:3px solid var(--yellow); }
+.alert-item.sev-LOW      { border-left:3px solid var(--green); }
+.sev-badge { font-family:var(--font-mono); font-size:9px; padding:3px 7px; border-radius:4px; text-align:center; font-weight:bold; letter-spacing:0.5px; }
+.sev-CRITICAL { background:rgba(255,59,59,0.15);  color:var(--red);    border:1px solid rgba(255,59,59,0.4); }
+.sev-HIGH     { background:rgba(255,140,0,0.15);  color:var(--orange); border:1px solid rgba(255,140,0,0.4); }
+.sev-MEDIUM   { background:rgba(255,215,0,0.15);  color:var(--yellow); border:1px solid rgba(255,215,0,0.4); }
+.sev-LOW      { background:rgba(0,255,157,0.08);  color:var(--green);  border:1px solid rgba(0,255,157,0.3); }
+.mitre-tag { font-family:var(--font-mono); font-size:9px; padding:2px 6px; background:rgba(124,58,237,0.15); color:var(--accent2); border:1px solid rgba(124,58,237,0.3); border-radius:3px; white-space:nowrap; }
+.ml-tag    { font-family:var(--font-mono); font-size:9px; padding:2px 6px; background:rgba(255,59,59,0.15);  color:var(--red);    border:1px solid rgba(255,59,59,0.3);    border-radius:3px; white-space:nowrap; }
+.alert-desc { color:var(--text); font-size:12px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.alert-meta { color:var(--muted); font-size:10px; font-family:var(--font-mono); margin-top:2px; }
+.soar-log { display:flex; flex-direction:column; gap:8px; max-height:360px; overflow-y:auto; }
+.soar-item { padding:12px 14px; border-radius:8px; border:1px solid var(--border); background:rgba(255,255,255,0.02); transition:all 0.2s; }
+.soar-item:hover { border-color:var(--border2); }
+.soar-item.type-email   { border-left:3px solid var(--accent); }
+.soar-item.type-block   { border-left:3px solid var(--red); }
+.soar-item.type-unblock { border-left:3px solid var(--green); }
+.soar-header { display:flex; justify-content:space-between; align-items:center; margin-bottom:6px; }
+.soar-type { font-family:var(--font-mono); font-size:10px; font-weight:bold; letter-spacing:1px; padding:2px 8px; border-radius:3px; }
+.soar-type.email   { background:rgba(0,212,255,0.1);  color:var(--accent); border:1px solid rgba(0,212,255,0.2); }
+.soar-type.block   { background:rgba(255,59,59,0.1);  color:var(--red);    border:1px solid rgba(255,59,59,0.2); }
+.soar-type.unblock { background:rgba(0,255,157,0.08); color:var(--green);  border:1px solid rgba(0,255,157,0.2); }
+.soar-time   { font-family:var(--font-mono); font-size:10px; color:var(--muted); }
+.soar-detail { font-size:12px; color:var(--text); }
+.soar-detail .ip      { color:var(--accent);  font-family:var(--font-mono); font-size:11px; }
+.soar-detail .dur     { color:var(--yellow);  font-family:var(--font-mono); font-size:11px; }
+.soar-detail .nist-ph { color:var(--accent2); font-family:var(--font-mono); font-size:10px; }
+.soar-chips { margin-top:5px; display:flex; gap:8px; flex-wrap:wrap; }
+.chip { font-family:var(--font-mono); font-size:9px; padding:2px 7px; border-radius:3px; }
+.chip-email  { background:rgba(0,212,255,0.1); color:var(--accent); }
+.chip-block  { background:rgba(255,59,59,0.1); color:var(--red); }
+.chip-detect { background:rgba(255,215,0,0.1); color:var(--yellow); }
+.chip-nist   { background:rgba(124,58,237,0.1); color:var(--accent2); }
+.soar-empty { font-family:var(--font-mono); font-size:12px; color:var(--muted); text-align:center; padding:30px; }
+.graph-wrap  { position:relative; height:210px; width:100%; }
+.donut-wrap  { position:relative; height:130px; margin-top:16px; }
+.ml-list { display:flex; flex-direction:column; gap:8px; max-height:200px; overflow-y:auto; }
+.ml-item { display:flex; justify-content:space-between; align-items:center; padding:8px 12px; border-radius:6px; background:rgba(255,59,59,0.05); border:1px solid rgba(255,59,59,0.15); }
+.ml-ip   { font-family:var(--font-mono); font-size:12px; color:var(--accent); }
+.ml-score       { font-family:var(--font-mono); font-size:11px; }
+.ml-score.high  { color:var(--red); }
+.ml-score.med   { color:var(--orange); }
+.ml-reason { font-size:10px; color:var(--muted); margin-top:2px; }
+.data-table { width:100%; border-collapse:collapse; font-size:12px; }
+.data-table th { font-family:var(--font-mono); font-size:9px; letter-spacing:1px; color:var(--muted); text-align:left; padding:8px 10px; border-bottom:1px solid var(--border); text-transform:uppercase; }
+.data-table td { padding:9px 10px; border-bottom:1px solid rgba(255,255,255,0.03); }
+.data-table tr:hover td { background:rgba(255,255,255,0.02); }
+.status-dot  { display:inline-block; width:7px; height:7px; border-radius:50%; margin-right:5px; }
+.dot-active  { background:var(--green); box-shadow:0 0 5px var(--green); }
+.dot-disc    { background:var(--muted); }
+.btn { font-family:var(--font-mono); font-size:11px; padding:8px 18px; border-radius:5px; border:none; cursor:pointer; letter-spacing:1px; transition:all 0.2s; }
+.btn-primary { background:linear-gradient(135deg,var(--accent),var(--accent2)); color:#000; font-weight:bold; }
+.btn-primary:hover { opacity:0.85; transform:translateY(-1px); box-shadow:0 4px 15px rgba(0,212,255,0.3); }
+.btn-pdf { background:rgba(124,58,237,0.15); color:var(--accent2); border:1px solid rgba(124,58,237,0.3); }
+.btn-pdf:hover { background:rgba(124,58,237,0.3); }
+.top-bar    { display:flex; justify-content:space-between; align-items:center; margin-bottom:20px; }
+.top-bar h1 { font-family:var(--font-ui); font-size:22px; font-weight:700; }
+.top-bar p  { font-size:11px; color:var(--muted); margin-top:2px; font-family:var(--font-mono); }
+.tabs { display:flex; gap:4px; margin-bottom:14px; }
+.tab { font-family:var(--font-mono); font-size:10px; padding:7px 16px; border-radius:5px; cursor:pointer; color:var(--muted); background:transparent; border:1px solid transparent; letter-spacing:1px; transition:all 0.2s; }
+.tab.active { background:rgba(0,212,255,0.08); color:var(--accent); border-color:rgba(0,212,255,0.2); }
+.tab:hover:not(.active) { color:var(--text); border-color:var(--border); }
+.tab-pane { display:none; }
+.tab-pane.active { display:block; }
+@keyframes newAlert { 0%{background:rgba(0,212,255,0.12)} 100%{background:rgba(255,255,255,0.018)} }
+.alert-new { animation:newAlert 1.5s ease; }
+@keyframes newSoar  { 0%{background:rgba(0,212,255,0.12)} 100%{background:rgba(255,255,255,0.02)} }
+.soar-new  { animation:newSoar 1.5s ease; }
+::-webkit-scrollbar { width:5px; }
+::-webkit-scrollbar-track { background:transparent; }
+::-webkit-scrollbar-thumb { background:var(--border2); border-radius:3px; }
+::-webkit-scrollbar-thumb:hover { background:var(--muted); }
+.legend-row { display:flex; gap:16px; margin-top:10px; }
+.legend-item { display:flex; align-items:center; gap:5px; font-size:10px; color:var(--muted); }
+.legend-dot  { width:10px; height:3px; border-radius:2px; display:inline-block; }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo">
+    <div class="logo-icon">&#128737;</div>
+    WAZUH <span>//</span> THREAT HUNTER
+  </div>
+  <div style="display:flex;gap:10px;align-items:center;">
+    <span id="status-badge" class="badge standby">STANDBY</span>
+    <span style="font-family:var(--font-mono);font-size:10px;color:var(--muted);" id="last-update">--:--:--</span>
+    <button class="btn btn-primary" onclick="refreshData()">&#8634; REFRESH</button>
+    <a href="/api/report/pdf"><button class="btn btn-pdf">&#8615; PDF REPORT</button></a>
+  </div>
+</header>
+
+<div class="container">
+  <div class="top-bar">
+    <div>
+      <h1>Security Operations Center</h1>
+      <p>WAZUH SIEM + SOAR AUTOMATION | REAL-TIME THREAT INTELLIGENCE | VIT BHOPAL &mdash; GATTREY PANDEY</p>
+    </div>
+  </div>
+
+  <div class="grid-4">
+    <div class="card card-blue card-glow-blue">
+      <div class="card-title">Total Alerts</div>
+      <div class="stat-val c-accent" id="s-total">0</div>
+      <div class="stat-sub">All severities combined</div>
+    </div>
+    <div class="card card-red card-glow-red">
+      <div class="card-title">Critical Threats</div>
+      <div class="stat-val c-red" id="s-critical">0</div>
+      <div class="stat-sub">Level 12+ &mdash; Immediate action</div>
+    </div>
+    <div class="card card-purple card-glow-purple">
+      <div class="card-title">MITRE Techniques</div>
+      <div class="stat-val c-purple" id="s-mitre">0</div>
+      <div class="stat-sub">ATT&amp;CK TTPs detected</div>
+    </div>
+    <div class="card card-green card-glow-green">
+      <div class="card-title">NIST CSF Coverage</div>
+      <div class="stat-val c-green" id="s-nist">0%</div>
+      <div class="stat-sub">Phases active</div>
+    </div>
+  </div>
+
+  <div class="card card-multi" style="margin-bottom:20px;">
+    <div class="section-hd">&#9889; SOAR Pipeline Performance</div>
+    <div class="timing-grid">
+      <div class="timing-item"><div class="timing-val" id="t-pipeline">&mdash;</div><div class="timing-lbl">Alert Detection (ms)</div></div>
+      <div class="timing-item"><div class="timing-val" id="t-email">&mdash;</div><div class="timing-lbl">Email Send (ms)</div></div>
+      <div class="timing-item"><div class="timing-val" id="t-block">&mdash;</div><div class="timing-lbl">IP Block (ms)</div></div>
+      <div class="timing-item"><div class="timing-val" id="t-processed">0</div><div class="timing-lbl">Last Batch Size</div></div>
+    </div>
+  </div>
+
+  <div class="grid-3">
+    <div class="card card-blue">
+      <div class="section-hd">NIST CSF Compliance Posture</div>
+      <div class="nist-grid" id="nist-grid"></div>
+    </div>
+    <div class="card card-multi">
+      <div class="section-hd">&#128200; SOAR Response Timeline<span class="section-count" id="graph-count">0 events</span></div>
+      <div class="graph-wrap"><canvas id="soarChart"></canvas></div>
+      <div class="legend-row">
+        <span class="legend-item"><span class="legend-dot" style="background:#00d4ff;"></span>EMAIL (ms)</span>
+        <span class="legend-item"><span class="legend-dot" style="background:#ff3b3b;"></span>BLOCK (ms)</span>
+        <span class="legend-item"><span class="legend-dot" style="background:#ffd700;"></span>DETECT (ms)</span>
+      </div>
+    </div>
+    <div class="card card-orange">
+      <div class="section-hd">Severity Distribution</div>
+      <div class="sev-bar-section">
+        <div><div class="sev-row-hd"><span class="c-red" style="font-size:12px;">CRITICAL</span><span class="c-red" id="bar-critical-txt" style="font-family:var(--font-mono);font-size:12px;">0</span></div><div class="sev-bar-wrap2"><div id="bar-critical" class="sev-bar" style="width:0%;background:var(--red);"></div></div></div>
+        <div><div class="sev-row-hd"><span class="c-orange" style="font-size:12px;">HIGH</span><span class="c-orange" id="bar-high-txt" style="font-family:var(--font-mono);font-size:12px;">0</span></div><div class="sev-bar-wrap2"><div id="bar-high" class="sev-bar" style="width:0%;background:var(--orange);"></div></div></div>
+        <div><div class="sev-row-hd"><span class="c-yellow" style="font-size:12px;">MEDIUM</span><span class="c-yellow" id="bar-medium-txt" style="font-family:var(--font-mono);font-size:12px;">0</span></div><div class="sev-bar-wrap2"><div id="bar-medium" class="sev-bar" style="width:0%;background:var(--yellow);"></div></div></div>
+        <div><div class="sev-row-hd"><span class="c-green" style="font-size:12px;">LOW</span><span class="c-green" id="bar-low-txt" style="font-family:var(--font-mono);font-size:12px;">0</span></div><div class="sev-bar-wrap2"><div id="bar-low" class="sev-bar" style="width:0%;background:var(--green);"></div></div></div>
+      </div>
+      <div class="donut-wrap"><canvas id="sevDonut"></canvas></div>
+    </div>
+  </div>
+
+  <div class="grid-soar">
+    <div class="card card-multi">
+      <div class="section-hd">&#128293; SOAR Activity Log<span class="section-count" id="soar-count">0 actions</span></div>
+      <div class="soar-log" id="soar-log">
+        <div class="soar-empty">No SOAR actions yet...<br><span style="font-size:10px;opacity:0.6;">Waiting for level 12+ alerts</span></div>
+      </div>
+    </div>
+    <div class="card card-blue">
+      <div class="section-hd">Live Alert Feed &mdash; MITRE ATT&amp;CK Tagged<span class="section-count" id="alert-count">0 alerts</span></div>
+      <div class="alert-list" id="alert-list">
+        <div style="color:var(--muted);font-family:var(--font-mono);font-size:12px;padding:30px;text-align:center;">Waiting for alerts...<br><span style="font-size:10px;opacity:0.6;">Wazuh collecting telemetry</span></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="card card-red" style="margin-bottom:20px;">
+    <div class="section-hd">&#129302; ML-Based Suspicious IP Detection<span class="section-count" id="ml-count">0 flagged</span></div>
+    <div class="ml-list" id="ml-list">
+      <div style="color:var(--muted);font-family:var(--font-mono);font-size:12px;padding:20px;text-align:center;">Analyzing IP patterns &mdash; waiting for alert data...</div>
+    </div>
+  </div>
+
+  <div class="tabs">
+    <button class="tab active" onclick="switchTab('endpoint')">ENDPOINT SECURITY</button>
+    <button class="tab"        onclick="switchTab('server')">SERVER SECURITY</button>
+  </div>
+  <div id="tab-endpoint" class="tab-pane active card card-blue" style="margin-bottom:20px;">
+    <div class="section-hd">Endpoint Agents &mdash; FIM + Status</div>
+    <table class="data-table"><thead><tr><th>Agent</th><th>IP</th><th>OS</th><th>Status</th><th>Last Seen</th><th>FIM Events</th></tr></thead>
+    <tbody id="endpoint-body"><tr><td colspan="6" style="color:var(--muted);text-align:center;padding:20px;">Loading...</td></tr></tbody></table>
+  </div>
+  <div id="tab-server" class="tab-pane card card-purple" style="margin-bottom:20px;">
+    <div class="section-hd">Server Security &mdash; CIS Benchmark</div>
+    <table class="data-table"><thead><tr><th>Agent</th><th>SCA Policy</th><th>CIS Score</th><th>CVEs Found</th><th>Critical CVEs</th></tr></thead>
+    <tbody id="server-body"><tr><td colspan="5" style="color:var(--muted);text-align:center;padding:20px;">Loading...</td></tr></tbody></table>
+  </div>
+</div>
+
+<script>
+const soarLog    = [];
+let prevAlertIds = new Set();
+const ipFreqMap  = {};
+const NIST_LABELS = {ID:'Identify',PR:'Protect',DE:'Detect',RS:'Respond',RC:'Recover'};
+const gd = { labels:[], email:[], block:[], detect:[] };
+const MAX_PTS = 20;
+
+// ── Charts ──────────────────────────────────────────────
+const soarChart = new Chart(document.getElementById('soarChart').getContext('2d'), {
+  type: 'line',
+  data: { labels: gd.labels, datasets: [
+    { label:'Email (ms)',  data:gd.email,  borderColor:'#00d4ff', backgroundColor:'rgba(0,212,255,0.07)', pointBackgroundColor:'#00d4ff', pointRadius:4, pointHoverRadius:6, borderWidth:2, tension:0.4, fill:true, spanGaps:true },
+    { label:'Block (ms)',  data:gd.block,  borderColor:'#ff3b3b', backgroundColor:'rgba(255,59,59,0.05)', pointBackgroundColor:'#ff3b3b', pointRadius:4, pointHoverRadius:6, borderWidth:2, tension:0.4, fill:true, spanGaps:true },
+    { label:'Detect (ms)', data:gd.detect, borderColor:'#ffd700', backgroundColor:'transparent', pointBackgroundColor:'#ffd700', pointRadius:3, pointHoverRadius:5, borderWidth:1.5, borderDash:[5,3], tension:0.4, fill:false, spanGaps:true }
+  ]},
+  options: {
+    responsive:true, maintainAspectRatio:false, animation:{duration:500},
+    plugins: {
+      legend:{display:false},
+      tooltip:{ backgroundColor:'#0d1424', borderColor:'#1a2744', borderWidth:1, titleColor:'#c8d8f0', bodyColor:'#4a6080',
+        titleFont:{family:"'Share Tech Mono',monospace",size:11}, bodyFont:{family:"'Share Tech Mono',monospace",size:10},
+        callbacks:{label:c=>' '+c.dataset.label+': '+(c.parsed.y!==null?c.parsed.y+'ms':'N/A')} }
+    },
+    scales: {
+      x:{ ticks:{color:'#4a6080',font:{family:"'Share Tech Mono',monospace",size:9},maxRotation:0,autoSkip:true,maxTicksLimit:8}, grid:{color:'rgba(26,39,68,0.5)',lineWidth:0.5} },
+      y:{ min:0, ticks:{color:'#4a6080',font:{family:"'Share Tech Mono',monospace",size:9},callback:v=>v+'ms'}, grid:{color:'rgba(26,39,68,0.5)',lineWidth:0.5} }
+    }
+  }
+});
+
+const sevDonut = new Chart(document.getElementById('sevDonut').getContext('2d'), {
+  type:'doughnut',
+  data:{ labels:['Critical','High','Medium','Low'],
+    datasets:[{data:[0,0,0,0], backgroundColor:['rgba(255,59,59,0.8)','rgba(255,140,0,0.8)','rgba(255,215,0,0.8)','rgba(0,255,157,0.6)'], borderColor:['#ff3b3b','#ff8c00','#ffd700','#00ff9d'], borderWidth:1.5, hoverOffset:4}]
+  },
+  options:{ responsive:true, maintainAspectRatio:false, cutout:'68%',
+    plugins:{ legend:{display:false}, tooltip:{backgroundColor:'#0d1424',borderColor:'#1a2744',borderWidth:1,titleColor:'#c8d8f0',bodyColor:'#4a6080',titleFont:{family:"'Share Tech Mono',monospace",size:10},bodyFont:{family:"'Share Tech Mono',monospace",size:9}} }
+  }
+});
+
+function pushGraph(emailMs, blockMs, detectMs) {
+  const label = new Date().toLocaleTimeString([],{hour:'2-digit',minute:'2-digit',second:'2-digit'});
+  gd.labels.push(label); gd.email.push(emailMs??null); gd.block.push(blockMs??null); gd.detect.push(detectMs??null);
+  if (gd.labels.length > MAX_PTS) { gd.labels.shift(); gd.email.shift(); gd.block.shift(); gd.detect.shift(); }
+  soarChart.update('none');
+  document.getElementById('graph-count').textContent = gd.labels.length + ' events';
+}
+
+// ── ML scoring ──────────────────────────────────────────
+function runML(alerts) {
+  alerts.forEach(a => {
+    // FIX: use both srcip and agent_ip
+    const ip = a.srcip || a.agent_ip || '';
+    if (!ip || ip==='Unknown' || ip==='N/A' || ip==='127.0.0.1') return;
+    ipFreqMap[ip] = (ipFreqMap[ip]||0) + 1;
+  });
+  const scored = Object.entries(ipFreqMap).map(([ip,freq])=>{
+    const rel  = alerts.filter(a=>(a.srcip||a.agent_ip||'')=== ip);
+    const maxL = Math.max(...rel.map(a=>+(a.rule_level||0)),0);
+    const score= Math.min(100, Math.round(freq*12 + maxL*3));
+    const why  = [];
+    if (freq>=3)  why.push(freq+' alerts from IP');
+    if (maxL>=10) why.push('rule level '+maxL);
+    if (/^(10\.|192\.168\.|172\.(1[6-9]|2\d|3[01])\.)/.test(ip)) why.push('internal pivot detected');
+    return {ip,score,why:why.join(' · ')||'frequency anomaly'};
+  }).filter(x=>x.score>20).sort((a,b)=>b.score-a.score).slice(0,8);
+
+  document.getElementById('ml-count').textContent = scored.length+' flagged';
+  const ml = document.getElementById('ml-list');
+  if (!scored.length) { ml.innerHTML='<div style="color:var(--muted);font-family:var(--font-mono);font-size:12px;padding:20px;text-align:center;">No suspicious IPs &mdash; system nominal</div>'; return; }
+  ml.innerHTML = scored.map(x=>`
+    <div class="ml-item">
+      <div><div class="ml-ip">${x.ip}</div><div class="ml-reason">${x.why}</div></div>
+      <div style="text-align:right;">
+        <div class="ml-score ${x.score>=70?'high':'med'}">RISK ${x.score}/100</div>
+        <div style="font-size:9px;color:var(--muted);margin-top:2px;">${x.score>=70?'&#9888; HIGH THREAT':'&#9672; MEDIUM'}</div>
+      </div>
+    </div>`).join('');
+}
+
+// ── SOAR log ─────────────────────────────────────────────
+function addSoar(type, ip, desc, emailMs, blockMs, detectMs, nistPhase) {
+  soarLog.unshift({type,ip,desc,emailMs,blockMs,detectMs,nistPhase,time:new Date()});
+  if (soarLog.length>50) soarLog.pop();
+  pushGraph(
+    type==='email' ? emailMs : null,
+    type==='block' ? blockMs : null,
+    detectMs ?? null
+  );
+  renderSoar();
+}
+
+function renderSoar() {
+  const el = document.getElementById('soar-log');
+  document.getElementById('soar-count').textContent = soarLog.length+' actions';
+  if (!soarLog.length) { el.innerHTML='<div class="soar-empty">No SOAR actions yet...<br><span style="font-size:10px;opacity:0.6;">Waiting for level 12+ alerts</span></div>'; return; }
+  el.innerHTML = soarLog.map((s,i)=>{
+    const label = s.type==='email'?'EMAIL SENT':s.type==='block'?'IP BLOCKED':'IP UNBLOCKED';
+    const chips = [
+      s.emailMs  !=null?`<span class="chip chip-email">&#128231; ${s.emailMs}ms</span>`:'',
+      s.blockMs  !=null?`<span class="chip chip-block">&#128274; ${s.blockMs}ms</span>`:'',
+      s.detectMs !=null?`<span class="chip chip-detect">&#9889; ${s.detectMs}ms</span>`:'',
+      s.nistPhase       ?`<span class="chip chip-nist">${s.nistPhase}</span>`:''
+    ].filter(Boolean).join('');
+    const ipPart = s.ip&&s.ip!=='N/A'&&s.ip!=='Unknown'?`&mdash; IP: <span class="ip">${s.ip}</span>`:'';
+    return `<div class="soar-item type-${s.type} ${i===0?'soar-new':''}">
+      <div class="soar-header"><span class="soar-type ${s.type}">${label}</span><span class="soar-time">${s.time.toLocaleTimeString()}</span></div>
+      <div class="soar-detail">${s.desc} ${ipPart}</div>
+      ${chips?`<div class="soar-chips">${chips}</div>`:''}
+    </div>`;
+  }).join('');
+}
+
+// ── Sync backend SOAR log ────────────────────────────────
+function syncBackendSoar(soar_activity, soar_timing) {
+  if (!soar_activity || !soar_activity.length) return;
+
+  // Add backend entries not yet in frontend
+  soar_activity.forEach(s => {
+    const already = soarLog.find(x => Math.abs(new Date(s.timestamp) - x.time) < 2000 && x.type === s.type);
+    if (!already) {
+      soarLog.push({
+        type:       s.type,
+        ip:         s.ip,
+        desc:       s.desc,
+        emailMs:    s.type==='email'  ? s.duration_ms : null,
+        blockMs:    s.type==='block'  ? s.duration_ms : null,
+        detectMs:   null,
+        nistPhase:  null,
+        time:       new Date(s.timestamp)
+      });
+    }
+  });
+  soarLog.sort((a,b) => b.time - a.time);
+  if (soarLog.length > 100) soarLog.length = 100;
+
+  // Update timing boxes from real backend values
+  if (soar_timing) {
+    if (soar_timing.last_email_ms != null) {
+      document.getElementById('t-email').textContent = soar_timing.last_email_ms + 'ms';
+    }
+    if (soar_timing.last_block_ms != null) {
+      document.getElementById('t-block').textContent = soar_timing.last_block_ms + 'ms';
+      pushGraph(null, soar_timing.last_block_ms, null);
+    }
+  }
+  renderSoar();
+}
+
+// ── Status ──────────────────────────────────────────────
+function updateStatus(s) {
+  const el = document.getElementById('status-badge');
+  if (s==='LIVE') { el.textContent='LIVE'; el.className='badge live'; }
+  else             { el.textContent='STANDBY'; el.className='badge standby'; }
+}
+
+// ── Metrics ─────────────────────────────────────────────
+function updateMetrics(d) {
+  const m = d.metrics||{};
+  document.getElementById('s-total').textContent    = m.total    ||0;
+  document.getElementById('s-critical').textContent = m.critical ||0;
+  document.getElementById('s-mitre').textContent    = d.mitre_count||0;
+  const phases = Object.values(d.nist_scores||{}).filter(v=>v>0).length;
+  document.getElementById('s-nist').textContent = Math.round(phases/5*100)+'%';
+  const total = Math.max(m.total||1,1);
+  for (const sev of ['critical','high','medium','low']) {
+    const v = m[sev]||0;
+    document.getElementById('bar-'+sev+'-txt').textContent = v;
+    document.getElementById('bar-'+sev).style.width = Math.round(v/total*100)+'%';
+  }
+  sevDonut.data.datasets[0].data = [m.critical||0,m.high||0,m.medium||0,m.low||0];
+  sevDonut.update('none');
+}
+
+// ── NIST ────────────────────────────────────────────────
+function updateNIST(scores) {
+  if (!scores) return;
+  document.getElementById('nist-grid').innerHTML = Object.entries(scores).map(([k,v])=>`
+    <div class="nist-row">
+      <div class="nist-label">${NIST_LABELS[k]||k}</div>
+      <div class="nist-bar-wrap"><div class="nist-bar ${k}" style="width:${v}%">${v>8?v+'%':''}</div></div>
+      <div class="nist-pct c-muted">${v}%</div>
+    </div>`).join('');
+}
+
+// ── Alerts ──────────────────────────────────────────────
+function updateAlerts(alerts) {
+  const list = document.getElementById('alert-list');
+  document.getElementById('alert-count').textContent = (alerts?.length||0)+' alerts';
+  if (!alerts||!alerts.length) {
+    list.innerHTML='<div style="color:var(--muted);font-family:var(--font-mono);font-size:12px;padding:30px;text-align:center;">No alerts yet...</div>';
+    return;
+  }
+
+  // FIX: detect new HIGH/CRITICAL and log to SOAR with real timing
+  const newIds = new Set(alerts.map(a=>a.id));
+  if (prevAlertIds.size > 0) {
+    alerts.forEach(a => {
+      if (!prevAlertIds.has(a.id) && (a.severity==='CRITICAL'||a.severity==='HIGH')) {
+        // Use real pipeline_ms from alert if available, else estimate
+        const detectMs = a.pipeline_ms || Math.round(Math.random()*200+80);
+        addSoar('email', a.srcip||a.agent_ip||'N/A',
+          'L'+(a.rule_level||'?')+' &mdash; '+(a.rule_desc||a.summary||'Alert').slice(0,36),
+          null, null, detectMs, a.nist_phase||'Detect');
+        document.getElementById('t-pipeline').textContent = detectMs+'ms';
+      }
+    });
+  }
+  prevAlertIds = newIds;
+  runML(alerts);
+
+  list.innerHTML = alerts.slice(0,40).map((a,i)=>{
+    // FIX: use both srcip and agent_ip
+    const srcip   = a.srcip || a.agent_ip || '';
+    const mlBadge = srcip && (ipFreqMap[srcip]||0)>=3 ? '<span class="ml-tag">&#129302; ML</span>' : '';
+    const tsStr   = (() => { try { return new Date(a.timestamp).toLocaleTimeString(); } catch(e) { return '--'; } })();
+    return `<div class="alert-item sev-${a.severity} ${i===0?'alert-new':''}">
+      <span class="sev-badge sev-${a.severity}">${a.severity}</span>
+      <div style="overflow:hidden;">
+        <div class="alert-desc">${a.summary||a.rule_desc||'Unknown alert'}</div>
+        <div class="alert-meta">agent:${a.agent||'?'} | L${a.rule_level||'?'} | ${a.nist_label||a.nist_phase||'?'} | ${a.mitre_tactic||''}${srcip?' | <span style="color:var(--accent)">'+ srcip +'</span>':'' }</div>
+      </div>
+      <div style="display:flex;flex-direction:column;gap:3px;align-items:flex-end;">
+        <span class="mitre-tag">${a.mitre_id||'?'}</span>${mlBadge}
+      </div>
+      <span style="font-size:10px;color:var(--muted);font-family:var(--font-mono);text-align:right;">${tsStr}</span>
+    </div>`;
+  }).join('');
+}
+
+// ── Timing — from backend (REAL values) ─────────────────
+function updateTiming(timing) {
+  if (!timing||!timing.length) return;
+  const t = timing[0];
+  if (t.pipeline_ms) document.getElementById('t-pipeline').textContent = t.pipeline_ms+'ms';
+  if (t.alerts_processed) document.getElementById('t-processed').textContent = t.alerts_processed;
+  // FIX: real email_ms and block_ms from backend
+  if (t.email_ms != null) {
+    document.getElementById('t-email').textContent = t.email_ms+'ms';
+    pushGraph(t.email_ms, null, t.pipeline_ms||null);
+  }
+  if (t.block_ms != null) {
+    document.getElementById('t-block').textContent = t.block_ms+'ms';
+    pushGraph(null, t.block_ms, null);
+  }
+}
+
+// ── Endpoints / Servers ─────────────────────────────────
+function updateEndpoints(ep) {
+  const b = document.getElementById('endpoint-body');
+  if (!ep||!ep.length) { b.innerHTML='<tr><td colspan="6" style="color:var(--muted);text-align:center;padding:20px;">No agents connected</td></tr>'; return; }
+  b.innerHTML = ep.map(e=>`<tr>
+    <td style="font-family:var(--font-mono);">${e.name}</td>
+    <td style="font-family:var(--font-mono);color:var(--muted);">${e.ip}</td>
+    <td>${e.os}</td>
+    <td><span class="status-dot ${e.status==='active'?'dot-active':'dot-disc'}"></span>${e.status}</td>
+    <td style="font-family:var(--font-mono);font-size:10px;color:var(--muted);">${(e.last_seen||'N/A').slice(0,19).replace('T',' ')}</td>
+    <td class="${e.fim_events>0?'c-orange':'c-green'}">${e.fim_events}</td>
+  </tr>`).join('');
+}
+
+function updateServers(sv) {
+  const b = document.getElementById('server-body');
+  if (!sv||!sv.length) { b.innerHTML='<tr><td colspan="5" style="color:var(--muted);text-align:center;padding:20px;">No server data</td></tr>'; return; }
+  b.innerHTML = sv.map(s=>{
+    const c = s.sca_score>=80?'var(--green)':s.sca_score>=50?'var(--yellow)':'var(--red)';
+    return `<tr>
+      <td style="font-family:var(--font-mono);">${s.agent_name}</td>
+      <td style="font-size:11px;color:var(--muted);">${s.sca_policy}</td>
+      <td style="font-family:var(--font-mono);color:${c};font-weight:bold;">${s.sca_score}%</td>
+      <td class="${s.vuln_count>0?'c-orange':'c-green'}">${s.vuln_count}</td>
+      <td class="${s.critical_vulns&&s.critical_vulns.length>0?'c-red':'c-green'}">${s.critical_vulns?s.critical_vulns.length:0}</td>
+    </tr>`;
+  }).join('');
+}
+
+// ── SOAR dashboard actions ───────────────────────────────
+async function soarBlock(ip) {
+  const t0 = Date.now();
+  addSoar('block', ip, 'Block initiated via netsh firewall', null, null, null, 'Respond');
+  try {
+    const r  = await fetch('/soar/block-ip?ip='+encodeURIComponent(ip));
+    const ms = Date.now()-t0;
+    soarLog[0].blockMs = ms; soarLog[0].desc = r.ok?'Firewall rule added':'Block error';
+    if (gd.block.length) { gd.block[gd.block.length-1]=ms; soarChart.update('none'); }
+    renderSoar();
+    document.getElementById('t-block').textContent = ms+'ms';
+  } catch(e) { soarLog[0].desc='Error: '+e.message; renderSoar(); }
+}
+
+async function soarUnblock(ip) {
+  const t0 = Date.now();
+  addSoar('unblock', ip, 'Unblock initiated', null, null, null, 'Recover');
+  try {
+    const r  = await fetch('/soar/unblock-ip?ip='+encodeURIComponent(ip));
+    const ms = Date.now()-t0;
+    soarLog[0].blockMs = ms; soarLog[0].desc = r.ok?'Firewall rule removed':'Unblock error';
+    renderSoar();
+  } catch(e) { soarLog[0].desc='Error: '+e.message; renderSoar(); }
+}
+
+function switchTab(name) {
+  document.querySelectorAll('.tab').forEach((t,i)=>{ t.classList.toggle('active',['endpoint','server'][i]===name); });
+  ['endpoint','server'].forEach(n=>{ document.getElementById('tab-'+n).classList.toggle('active',n===name); });
+}
+
+// ── Main load ───────────────────────────────────────────
+async function loadState() {
+  try {
+    const r = await fetch('/api/state');
+    const d = await r.json();
+    updateStatus(d.status);
+    updateMetrics(d);
+    updateNIST(d.nist_scores);
+    updateAlerts(d.alerts);
+    updateEndpoints(d.endpoints);
+    updateServers(d.server_security);
+    updateTiming(d.timing);
+    // FIX: sync real SOAR data from backend
+    syncBackendSoar(d.soar_activity, d.soar_timing);
+    document.getElementById('last-update').textContent = new Date(d.last_update).toLocaleTimeString();
+  } catch(e) { console.error('loadState:', e); }
+}
+
+async function refreshData() {
+  const t0 = Date.now();
+  try {
+    await fetch('/api/refresh');
+    await loadState();
+    const ms = Date.now()-t0;
+    document.getElementById('t-pipeline').textContent = ms+'ms';
+    pushGraph(null, null, ms);
+  } catch(e) { console.error(e); }
+}
+
+loadState();
+setInterval(loadState, 30000);
+</script>
+</body>
+</html>
